@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, Syne } from "next/font/google";
+import { LEADRESCUE_PUBLIC_ORIGIN } from "@/lib/leadrescue-public";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -13,7 +14,7 @@ const syne = Syne({
   weight: ["500", "600", "700", "800"],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL;
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? LEADRESCUE_PUBLIC_ORIGIN;
 
 export const metadata: Metadata = {
   ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),

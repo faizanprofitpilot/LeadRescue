@@ -3,6 +3,10 @@ import type {
   TollfreeVerificationContextUpdateOptions,
   TollfreeVerificationListInstanceCreateOptions,
 } from "twilio/lib/rest/messaging/v1/tollfreeVerification";
+import {
+  DEFAULT_TFV_OPT_IN_PROOF_URL,
+  LEADRESCUE_PUBLIC_ORIGIN,
+} from "@/lib/leadrescue-public";
 import { getTwilioClient } from "@/lib/twilio/client";
 import {
   lineVerificationStatusFromTwilio,
@@ -97,17 +101,23 @@ type TfvFieldRow = Pick<
   | "use_case_description"
 >;
 
+/**
+ * Always returns at least one HTTPS URL for the Twilio TFV payload (never user-facing).
+ * Order: DB → TWILIO_TFV_OPT_IN_IMAGE_URLS → product default page.
+ */
 function resolveOptInImageUrls(row: TfvFieldRow): string[] {
   const raw = row.opt_in_image_urls;
   const fromDb = Array.isArray(raw)
     ? raw.filter((u): u is string => typeof u === "string" && /^https:\/\//i.test(u.trim())).map((u) => u.trim())
     : [];
   if (fromDb.length > 0) return fromDb;
-  const env = (process.env.TWILIO_TFV_OPT_IN_IMAGE_URLS ?? "")
+  const envUrls = (process.env.TWILIO_TFV_OPT_IN_IMAGE_URLS ?? "")
     .split(",")
     .map((s) => s.trim())
+    .filter(Boolean)
     .filter((s) => /^https:\/\//i.test(s));
-  return env;
+  if (envUrls.length > 0) return envUrls;
+  return [DEFAULT_TFV_OPT_IN_PROOF_URL];
 }
 
 function productionSample(row: TfvFieldRow): string {
@@ -134,20 +144,15 @@ function twilioErrorMessage(err: unknown): string {
 
 function baseCreateParams(ctx: TfvSubmitContext) {
   const row = ctx;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+    LEADRESCUE_PUBLIC_ORIGIN.replace(/\/$/, "");
   const businessWebsite = ensureHttpUrl(row.website, appUrl);
   if (!businessWebsite) {
-    throw new Error(
-      "Business website or NEXT_PUBLIC_APP_URL is required for toll-free verification.",
-    );
+    throw new Error("Business website or public app URL is required for toll-free verification.");
   }
 
   const optInImageUrls = resolveOptInImageUrls(row);
-  if (optInImageUrls.length === 0) {
-    throw new Error(
-      "At least one HTTPS opt-in proof image URL is required (form field or TWILIO_TFV_OPT_IN_IMAGE_URLS).",
-    );
-  }
 
   const { first, last } = splitOwnerName(ctx.ownerName);
   const businessType = row.business_type?.trim();

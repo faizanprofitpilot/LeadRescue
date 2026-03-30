@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { LEADRESCUE_PUBLIC_ORIGIN } from "@/lib/leadrescue-public";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +22,7 @@ export function SignupForm() {
     setMessage(null);
     setLoading(true);
     const supabase = createClient();
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? LEADRESCUE_PUBLIC_ORIGIN;
     const { data, error: signError } = await supabase.auth.signUp({
       email,
       password,

@@ -108,7 +108,7 @@ export default async function LeadsPage({
             Forward a missed call to your LeadRescue number to see your first recovery here.
           </p>
           <Link
-            href="/dashboard/settings"
+            href="/dashboard/onboarding"
             className={cn(buttonVariants({ variant: "secondary", size: "default" }), "mt-6 inline-flex")}
           >
             View setup &amp; number

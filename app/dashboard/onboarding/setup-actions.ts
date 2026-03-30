@@ -24,22 +24,6 @@ const twilioBusinessTypeSubmit = z
     { message: "Select a business type." },
   );
 
-const optInImageUrlsField = z.string().max(8000).optional().or(z.literal(""));
-
-function parseOptInHttpsUrls(multiline: string): string[] {
-  if (!multiline.trim()) return [];
-  return multiline
-    .split("\n")
-    .map((s) => s.trim())
-    .filter((s) => /^https:\/\//i.test(s));
-}
-
-function hasServerOptInImageUrlsEnv(): boolean {
-  return (process.env.TWILIO_TFV_OPT_IN_IMAGE_URLS ?? "")
-    .split(",")
-    .some((s) => /^https:\/\//i.test(s.trim()));
-}
-
 export async function saveBusinessBasics(formData: FormData): Promise<{
   error?: string;
   ok?: boolean;
@@ -234,7 +218,6 @@ const verificationDraftSchema = z.object({
   sampleMessage1: optionalField,
   sampleMessage2: optionalField,
   consentDescription: optionalField,
-  optInImageUrls: optInImageUrlsField,
 });
 
 const verificationSubmitSchema = z
@@ -267,25 +250,15 @@ const verificationSubmitSchema = z
     .max(500, "Sample message 2 is too long."),
   consentDescription: z
     .string()
-    .min(1, "Opt-in / consent wording cannot be empty.")
-    .min(40, "Opt-in / consent wording is too short. Add how customers agree and how they can opt out.")
-    .max(2000, "Opt-in / consent wording is too long.")
+    .min(1, "Consent wording cannot be empty.")
+    .min(40, "Consent wording is too short. Add how customers agree to texts and how they can opt out.")
+    .max(2000, "Consent wording is too long.")
     .refine((s) => consentIncludesOptOutLanguage(s), {
       message:
         "Consent wording should explain how customers can opt out (for example, replying STOP).",
     }),
-  optInImageUrls: optInImageUrlsField,
 })
   .superRefine((data, ctx) => {
-    const fromForm = parseOptInHttpsUrls(data.optInImageUrls ?? "");
-    if (fromForm.length === 0 && !hasServerOptInImageUrlsEnv()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["optInImageUrls"],
-        message:
-          "Add at least one HTTPS URL (one per line) showing customer opt-in, or set TWILIO_TFV_OPT_IN_IMAGE_URLS on the server.",
-      });
-    }
     if (data.businessType !== "SOLE_PROPRIETOR" && !data.registrationNumber?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -319,7 +292,6 @@ function formToVerificationRaw(formData: FormData) {
     sampleMessage1: trimVerificationField(raw.sampleMessage1),
     sampleMessage2: trimVerificationField(raw.sampleMessage2),
     consentDescription: trimVerificationField(raw.consentDescription),
-    optInImageUrls: trimVerificationField(raw.optInImageUrls),
   };
 }
 
@@ -346,19 +318,12 @@ export async function saveVerificationDraft(
 
   const { data: existing } = await supabase
     .from("toll_free_verifications")
-    .select("id, opt_in_image_urls")
+    .select("id")
     .eq("business_id", business.id)
     .maybeSingle();
 
   const v = parsed.data;
   const trim = (s: string | undefined) => (s?.trim() ? s.trim() : null);
-  const fromFormDraft = parseOptInHttpsUrls(v.optInImageUrls ?? "");
-  const opt_in_image_urls =
-    fromFormDraft.length > 0
-      ? fromFormDraft
-      : Array.isArray(existing?.opt_in_image_urls)
-        ? (existing.opt_in_image_urls as string[])
-        : [];
   const row = {
     business_id: business.id,
     legal_business_name: trim(v.legalBusinessName),
@@ -380,7 +345,7 @@ export async function saveVerificationDraft(
     sample_message_1: trim(v.sampleMessage1),
     sample_message_2: trim(v.sampleMessage2),
     consent_description: trim(v.consentDescription),
-    opt_in_image_urls,
+    opt_in_image_urls: [] as string[],
     status: "draft" as const,
   };
 
@@ -449,13 +414,6 @@ export async function submitVerificationForReview(
     .maybeSingle();
 
   const v = parsed.data;
-  const fromForm = parseOptInHttpsUrls(v.optInImageUrls ?? "");
-  const opt_in_image_urls =
-    fromForm.length > 0
-      ? fromForm
-      : Array.isArray(existingTfv?.opt_in_image_urls)
-        ? (existingTfv.opt_in_image_urls as string[])
-        : [];
 
   const statusKeep = (existingTfv?.status ?? "not_started") as TollFreeVerificationStatus;
 
@@ -478,7 +436,7 @@ export async function submitVerificationForReview(
     sample_message_1: v.sampleMessage1.trim(),
     sample_message_2: v.sampleMessage2.trim(),
     consent_description: v.consentDescription.trim(),
-    opt_in_image_urls,
+    opt_in_image_urls: [] as string[],
     phone_number_id: phone?.id ?? existingTfv?.phone_number_id ?? null,
     status: statusKeep,
   };

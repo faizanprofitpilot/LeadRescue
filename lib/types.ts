@@ -91,7 +91,7 @@ export type TollFreeVerificationRow = {
   sample_message_1: string | null;
   sample_message_2: string | null;
   consent_description: string | null;
-  /** HTTPS URLs of opt-in proof screenshots (Twilio TFV required). */
+  /** Optional stored proof URLs; submission also uses env or product default when empty. */
   opt_in_image_urls: string[] | null;
   status: TollFreeVerificationStatus;
   provider_submission_id: string | null;

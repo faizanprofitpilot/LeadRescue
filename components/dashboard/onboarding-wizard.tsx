@@ -491,7 +491,7 @@ export function OnboardingWizard({
             <p className="mt-1 text-muted-foreground text-sm leading-relaxed">
               U.S. carriers require a one-time registration with your business details. Submit
               accurate information, then check back here for status—it updates automatically every few
-              minutes when you use the dashboard, not the moment Twilio changes.
+              minutes when you use the dashboard, not the instant a review status changes.
             </p>
             <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
               Texting approval usually takes a few business days.
@@ -673,7 +673,7 @@ export function OnboardingWizard({
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="consentDescription">Opt-in / consent wording</Label>
+                  <Label htmlFor="consentDescription">Text message consent wording</Label>
                   <Textarea
                     id="consentDescription"
                     name="consentDescription"
@@ -685,25 +685,6 @@ export function OnboardingWizard({
                         : VERIFICATION_DEFAULT_CONSENT
                     }
                   />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="optInImageUrls">Opt-in proof image URLs</Label>
-                  <Textarea
-                    id="optInImageUrls"
-                    name="optInImageUrls"
-                    rows={3}
-                    placeholder="https://example.com/opt-in-screenshot.png"
-                    defaultValue={
-                      tf?.opt_in_image_urls?.length
-                        ? tf.opt_in_image_urls.join("\n")
-                        : ""
-                    }
-                  />
-                  <p className="text-muted-foreground text-xs leading-relaxed">
-                    Twilio needs at least one public HTTPS URL per line (screenshots of your opt-in
-                    flow). Your deploy can also set TWILIO_TFV_OPT_IN_IMAGE_URLS (comma-separated HTTPS
-                    URLs) if you prefer not to paste them here.
-                  </p>
                 </div>
               </div>
 

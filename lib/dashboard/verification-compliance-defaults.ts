@@ -12,7 +12,7 @@ export const VERIFICATION_DEFAULT_SAMPLE_2 =
   "Thanks. Can you share the service needed and your address so we can follow up?";
 
 export const VERIFICATION_DEFAULT_CONSENT =
-  "Customers opt in by calling our business directly. Messages are sent only in response to inbound calls. Customers can reply STOP to opt out at any time.";
+  "Customers agree to receive texts by calling our business directly. Messages are sent only in response to inbound calls. Customers can reply STOP to opt out at any time.";
 
 /** Consent text should mention how customers can opt out (messaging compliance). */
 export function consentIncludesOptOutLanguage(text: string): boolean {
