@@ -13,7 +13,10 @@ const syne = Syne({
   weight: ["500", "600", "700", "800"],
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL;
+
 export const metadata: Metadata = {
+  ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
   title: {
     default: "LeadRescue: Missed-call lead recovery",
     template: "%s · LeadRescue",
@@ -21,8 +24,9 @@ export const metadata: Metadata = {
   description:
     "Missed calls are lost jobs. LeadRescue texts customers back instantly, captures job details, and delivers ready-to-call leads for HVAC, plumbing, electrical, and home service teams.",
   icons: {
-    icon: "/favicon.png",
-    apple: "/favicon.png",
+    icon: [{ url: "/favicon.png", type: "image/png" }],
+    shortcut: "/favicon.png",
+    apple: [{ url: "/favicon.png", type: "image/png" }],
   },
 };
 
