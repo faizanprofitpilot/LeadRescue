@@ -1,65 +1,91 @@
-import Image from "next/image";
+import Link from "next/link";
+import { BenefitGridSection } from "@/components/marketing/benefit-grid-section";
+import { FinalCtaSection } from "@/components/marketing/final-cta-section";
+import { PricingSection } from "@/components/marketing/pricing-section";
+import { HeroProductVisual } from "@/components/marketing/hero-product-visual";
+import { HowItWorksSection } from "@/components/marketing/how-it-works-section";
+import { SiteFooter } from "@/components/marketing/site-footer";
+import { SiteHeader } from "@/components/marketing/site-header";
+import { TradesStrip } from "@/components/marketing/trades-strip";
+import { ValueSection } from "@/components/marketing/value-section";
+import { buttonVariants } from "@/components/ui/button-variants";
+import { cn } from "@/lib/utils";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <div className="flex min-h-screen flex-col bg-[#f6f1ea] text-[#1a1f26]">
+      <SiteHeader />
+      <main className="flex-1">
+        {/* Hero */}
+        <section className="relative overflow-hidden">
+          <div
+            className="lr-hero-glow-pulse pointer-events-none absolute inset-0 opacity-[0.5]"
+            aria-hidden
+            style={{
+              backgroundImage:
+                "radial-gradient(880px 480px at 12% 8%, rgba(196, 92, 62, 0.28), transparent 58%), radial-gradient(720px 400px at 92% 18%, rgba(12, 17, 24, 0.14), transparent 52%), radial-gradient(560px 360px at 48% 100%, rgba(196, 92, 62, 0.1), transparent 48%)",
+            }}
+          />
+          <div className="relative pb-16 pt-16 sm:pb-20 sm:pt-20 lg:pb-24 lg:pt-24">
+            <div className="lr-hero-stagger mx-auto max-w-6xl px-4 text-center sm:px-6">
+              <p className="font-heading text-sm font-semibold tracking-[0.1em] text-[#c45c3e] uppercase">
+                Missed-call revenue recovery
+              </p>
+              <h1 className="font-heading mx-auto mt-10 max-w-[min(100%,56rem)] text-4xl font-bold leading-[1.08] tracking-tight sm:mt-12 sm:text-5xl sm:leading-[1.06] lg:mt-14 lg:text-[2.875rem] lg:leading-[1.05] xl:text-[3.25rem] xl:leading-[1.05]">
+                <span className="block">Every missed call is a lost job.</span>
+                <span className="mt-2.5 block text-[#1a1f26] sm:mt-3">
+                  LeadRescue turns them into booked work.
+                </span>
+              </h1>
+              <p className="mx-auto mt-14 max-w-[37.5rem] text-lg leading-relaxed text-[#5c6570] sm:mt-16 sm:text-xl">
+                When you miss a call, LeadRescue texts the customer instantly and sends you a
+                ready-to-call job with all the details.
+              </p>
+              <div className="mt-11 flex flex-col items-center justify-center gap-3 sm:mt-12 sm:flex-row sm:flex-wrap">
+                <Link
+                  href="/signup"
+                  className={cn(
+                    buttonVariants({ size: "lg" }),
+                    "h-12 w-full justify-center rounded-full bg-[#c45c3e] px-8 text-base text-white transition-[transform,box-shadow,background-color] duration-200 ease-out hover:bg-[#b04f34] hover:shadow-md active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 sm:w-auto",
+                  )}
+                >
+                  Start recovering leads
+                </Link>
+                <a
+                  href="#how-it-works"
+                  className={cn(
+                    buttonVariants({ size: "lg", variant: "outline" }),
+                    "h-12 w-full justify-center rounded-full border-[#1a1f26]/20 bg-white/70 px-8 text-base text-[#1a1f26] backdrop-blur-sm transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-white/90 hover:shadow-sm active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 sm:w-auto",
+                  )}
+                >
+                  How it works
+                </a>
+              </div>
+              <p className="mx-auto mt-8 max-w-[37.5rem] text-sm leading-relaxed text-[#5c6570]">
+                Not a phone system replacement. LeadRescue only handles missed or unanswered
+                calls.
+              </p>
+            </div>
+
+            <div className="mt-16 w-full sm:mt-20 lg:mt-24">
+              <div className="mx-auto max-w-7xl px-4 sm:max-w-[85rem] sm:px-6 lg:px-8">
+                <HeroProductVisual />
+              </div>
+            </div>
+
+            <div className="mx-auto mt-12 max-w-6xl px-4 sm:mt-14 sm:px-6">
+              <TradesStrip />
+            </div>
+          </div>
+        </section>
+
+        <HowItWorksSection />
+        <ValueSection />
+        <BenefitGridSection />
+        <PricingSection />
+        <FinalCtaSection />
       </main>
+      <SiteFooter />
     </div>
   );
 }
