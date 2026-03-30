@@ -9,7 +9,7 @@ import { provisionTollFreeNumber } from "@/lib/twilio/provision-toll-free";
 import { mergeChecklist, parseSetupChecklist } from "@/lib/dashboard/setup-checklist";
 import { consentIncludesOptOutLanguage } from "@/lib/dashboard/verification-compliance-defaults";
 import { submitToProvider } from "@/lib/twilio/verification-adapter";
-import type { SetupChecklist } from "@/lib/types";
+import type { SetupChecklist, TollFreeVerificationStatus } from "@/lib/types";
 import { SERVICE_CATEGORIES } from "@/lib/dashboard/service-categories";
 import { TWILIO_TOLLFREE_BUSINESS_TYPES } from "@/lib/dashboard/twilio-tollfree-business-types";
 
@@ -23,6 +23,22 @@ const twilioBusinessTypeSubmit = z
       (TWILIO_TOLLFREE_BUSINESS_TYPES as readonly string[]).includes(s),
     { message: "Select a business type." },
   );
+
+const optInImageUrlsField = z.string().max(8000).optional().or(z.literal(""));
+
+function parseOptInHttpsUrls(multiline: string): string[] {
+  if (!multiline.trim()) return [];
+  return multiline
+    .split("\n")
+    .map((s) => s.trim())
+    .filter((s) => /^https:\/\//i.test(s));
+}
+
+function hasServerOptInImageUrlsEnv(): boolean {
+  return (process.env.TWILIO_TFV_OPT_IN_IMAGE_URLS ?? "")
+    .split(",")
+    .some((s) => /^https:\/\//i.test(s.trim()));
+}
 
 export async function saveBusinessBasics(formData: FormData): Promise<{
   error?: string;
@@ -218,9 +234,11 @@ const verificationDraftSchema = z.object({
   sampleMessage1: optionalField,
   sampleMessage2: optionalField,
   consentDescription: optionalField,
+  optInImageUrls: optInImageUrlsField,
 });
 
-const verificationSubmitSchema = z.object({
+const verificationSubmitSchema = z
+  .object({
   legalBusinessName: z.string().min(2).max(300),
   publicBusinessName: z.string().min(2).max(300),
   businessType: twilioBusinessTypeSubmit,
@@ -256,7 +274,26 @@ const verificationSubmitSchema = z.object({
       message:
         "Consent wording should explain how customers can opt out (for example, replying STOP).",
     }),
-});
+  optInImageUrls: optInImageUrlsField,
+})
+  .superRefine((data, ctx) => {
+    const fromForm = parseOptInHttpsUrls(data.optInImageUrls ?? "");
+    if (fromForm.length === 0 && !hasServerOptInImageUrlsEnv()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["optInImageUrls"],
+        message:
+          "Add at least one HTTPS URL (one per line) showing customer opt-in, or set TWILIO_TFV_OPT_IN_IMAGE_URLS on the server.",
+      });
+    }
+    if (data.businessType !== "SOLE_PROPRIETOR" && !data.registrationNumber?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["registrationNumber"],
+        message: "EIN or business registration number is required for this business type.",
+      });
+    }
+  });
 
 function trimVerificationField(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -282,6 +319,7 @@ function formToVerificationRaw(formData: FormData) {
     sampleMessage1: trimVerificationField(raw.sampleMessage1),
     sampleMessage2: trimVerificationField(raw.sampleMessage2),
     consentDescription: trimVerificationField(raw.consentDescription),
+    optInImageUrls: trimVerificationField(raw.optInImageUrls),
   };
 }
 
@@ -306,8 +344,21 @@ export async function saveVerificationDraft(
     .single();
   if (!business) return { error: "No business found." };
 
+  const { data: existing } = await supabase
+    .from("toll_free_verifications")
+    .select("id, opt_in_image_urls")
+    .eq("business_id", business.id)
+    .maybeSingle();
+
   const v = parsed.data;
   const trim = (s: string | undefined) => (s?.trim() ? s.trim() : null);
+  const fromFormDraft = parseOptInHttpsUrls(v.optInImageUrls ?? "");
+  const opt_in_image_urls =
+    fromFormDraft.length > 0
+      ? fromFormDraft
+      : Array.isArray(existing?.opt_in_image_urls)
+        ? (existing.opt_in_image_urls as string[])
+        : [];
   const row = {
     business_id: business.id,
     legal_business_name: trim(v.legalBusinessName),
@@ -329,14 +380,9 @@ export async function saveVerificationDraft(
     sample_message_1: trim(v.sampleMessage1),
     sample_message_2: trim(v.sampleMessage2),
     consent_description: trim(v.consentDescription),
+    opt_in_image_urls,
     status: "draft" as const,
   };
-
-  const { data: existing } = await supabase
-    .from("toll_free_verifications")
-    .select("id")
-    .eq("business_id", business.id)
-    .maybeSingle();
 
   if (existing?.id) {
     await supabase
@@ -384,12 +430,35 @@ export async function submitVerificationForReview(
 
   const { data: business } = await supabase
     .from("businesses")
-    .select("id, setup_checklist")
+    .select("id, setup_checklist, owner_name")
     .eq("user_id", user.id)
     .single();
   if (!business) return { error: "No business found." };
 
+  const { data: phone } = await supabase
+    .from("phone_numbers")
+    .select("id, twilio_sid")
+    .eq("business_id", business.id)
+    .eq("provisioning_status", "active")
+    .maybeSingle();
+
+  const { data: existingTfv } = await supabase
+    .from("toll_free_verifications")
+    .select("*")
+    .eq("business_id", business.id)
+    .maybeSingle();
+
   const v = parsed.data;
+  const fromForm = parseOptInHttpsUrls(v.optInImageUrls ?? "");
+  const opt_in_image_urls =
+    fromForm.length > 0
+      ? fromForm
+      : Array.isArray(existingTfv?.opt_in_image_urls)
+        ? (existingTfv.opt_in_image_urls as string[])
+        : [];
+
+  const statusKeep = (existingTfv?.status ?? "not_started") as TollFreeVerificationStatus;
+
   const row = {
     business_id: business.id,
     legal_business_name: v.legalBusinessName.trim(),
@@ -409,25 +478,23 @@ export async function submitVerificationForReview(
     sample_message_1: v.sampleMessage1.trim(),
     sample_message_2: v.sampleMessage2.trim(),
     consent_description: v.consentDescription.trim(),
+    opt_in_image_urls,
+    phone_number_id: phone?.id ?? existingTfv?.phone_number_id ?? null,
+    status: statusKeep,
   };
 
-  const { data: existing } = await supabase
-    .from("toll_free_verifications")
-    .select("id")
-    .eq("business_id", business.id)
-    .maybeSingle();
-
   let rowId: string;
-  if (existing?.id) {
-    await supabase
+  if (existingTfv?.id) {
+    const { error: upErr } = await supabase
       .from("toll_free_verifications")
-      .update({ ...row, status: "submitted" })
-      .eq("id", existing.id);
-    rowId = existing.id;
+      .update(row)
+      .eq("id", existingTfv.id);
+    if (upErr) return { error: upErr.message ?? "Could not save." };
+    rowId = existingTfv.id;
   } else {
     const { data: ins, error } = await supabase
       .from("toll_free_verifications")
-      .insert({ ...row, status: "submitted" })
+      .insert(row)
       .select("id")
       .single();
     if (error || !ins) return { error: error?.message ?? "Could not save." };
@@ -446,12 +513,22 @@ export async function submitVerificationForReview(
     ...fullRow,
     id: fullRow.id,
     business_id: fullRow.business_id,
+    twilioPhoneSid: phone?.twilio_sid ?? null,
+    ownerName: business.owner_name ?? null,
   });
 
+  if (!provider.ok) {
+    revalidatePath("/dashboard/onboarding");
+    return { error: provider.error };
+  }
+
   const now = new Date().toISOString();
+  const tfvStatus = provider.line_verification_status as TollFreeVerificationStatus;
+
   await supabase
     .from("toll_free_verifications")
     .update({
+      status: tfvStatus,
       submitted_at: now,
       provider_submission_id: provider.provider_submission_id,
       provider_response_payload: provider.provider_response_payload as Record<
@@ -461,19 +538,14 @@ export async function submitVerificationForReview(
     })
     .eq("id", rowId);
 
-  const { data: phone } = await supabase
-    .from("phone_numbers")
-    .select("id")
-    .eq("business_id", business.id)
-    .eq("provisioning_status", "active")
-    .maybeSingle();
-
   if (phone?.id) {
     await supabase
       .from("phone_numbers")
       .update({
-        line_verification_status: "submitted",
+        line_verification_status: provider.line_verification_status,
         verification_submitted_at: now,
+        verification_approved_at:
+          provider.line_verification_status === "approved" ? now : null,
       })
       .eq("id", phone.id);
   }

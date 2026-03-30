@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { syncTollFreeVerificationFromTwilio } from "@/lib/twilio/tfv-sync";
 import { parseSetupChecklist } from "@/lib/dashboard/setup-checklist";
 import type {
   Business,
@@ -71,6 +72,14 @@ export async function getDashboardContext(): Promise<{
 
   const supabase = await createClient();
 
+  await syncTollFreeVerificationFromTwilio(supabase, base.business.id);
+
+  const { data: phonesAfterSync } = await supabase
+    .from("phone_numbers")
+    .select("*")
+    .eq("business_id", base.business.id)
+    .order("created_at", { ascending: true });
+
   const { data: kb } = await supabase
     .from("business_knowledge_base")
     .select("*")
@@ -85,7 +94,7 @@ export async function getDashboardContext(): Promise<{
 
   return {
     business: base.business,
-    phoneNumbers: base.phoneNumbers,
+    phoneNumbers: (phonesAfterSync ?? base.phoneNumbers) as PhoneNumberRow[],
     knowledgeBase: (kb ?? null) as BusinessKnowledgeBaseRow | null,
     tollFreeVerification: (tfv ?? null) as TollFreeVerificationRow | null,
   };

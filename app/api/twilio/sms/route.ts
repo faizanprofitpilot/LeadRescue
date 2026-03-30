@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
   const { data: phoneRow } = await admin
     .from("phone_numbers")
-    .select("id, business_id, phone_number")
+    .select("id, business_id, phone_number, phone_type, line_verification_status")
     .eq("phone_number", inboundLineE164)
     .maybeSingle();
 
@@ -92,8 +92,13 @@ export async function POST(request: NextRequest) {
     return new NextResponse("", { status: 200 });
   }
 
-  const outboundFromNumber = phoneRow.phone_number;
-  const businessId = phoneRow.business_id;
+  const inboundLine = phoneRow;
+  const tollFreeOutboundBlocked =
+    inboundLine.phone_type === "toll_free" &&
+    inboundLine.line_verification_status !== "approved";
+
+  const outboundFromNumber = inboundLine.phone_number;
+  const businessId = inboundLine.business_id;
 
   const { data: bizRow } = await admin
     .from("businesses")
@@ -152,6 +157,13 @@ export async function POST(request: NextRequest) {
   const activeConv = activeRow as Conversation | null;
 
   async function sendSms(body: string): Promise<void> {
+    if (tollFreeOutboundBlocked) {
+      logSmsEvent("toll_free_verification_outbound_blocked", {
+        businessId,
+        lineVerificationStatus: inboundLine.line_verification_status ?? null,
+      });
+      return;
+    }
     const twilio = getTwilioClient();
     await twilio.messages.create({
       to: customerE164,
@@ -261,6 +273,15 @@ export async function POST(request: NextRequest) {
     leadId: conv.lead_id,
     businessId,
   });
+
+  if (tollFreeOutboundBlocked) {
+    logSmsEvent("toll_free_verification_inbound_no_ai", {
+      businessId,
+      conversationId: conv.id,
+      lineVerificationStatus: inboundLine.line_verification_status ?? null,
+    });
+    return new NextResponse("", { status: 200 });
+  }
 
   const { data: messageRows } = await admin
     .from("messages")

@@ -26,12 +26,13 @@ AI-powered **missed-call recovery** for **home service** businesses (HVAC, plumb
 3. **Supabase**
 
    - Create a project.
-   - Run migrations in order: [`20250324120000_initial.sql`](supabase/migrations/20250324120000_initial.sql), [`20250324200000_niche_home_services.sql`](supabase/migrations/20250324200000_niche_home_services.sql) (if applicable), [`20250328120000_leadrescue_product_upgrade.sql`](supabase/migrations/20250328120000_leadrescue_product_upgrade.sql), [`20250329140000_sms_thread_routing.sql`](supabase/migrations/20250329140000_sms_thread_routing.sql), then [`20250329190000_user_subscriptions.sql`](supabase/migrations/20250329190000_user_subscriptions.sql) (`user_subscriptions` for the dashboard paywall). To grant yourself the $49/mo plan after migrating, run [`supabase/sql/grant_monthly_49_plan.sql`](supabase/sql/grant_monthly_49_plan.sql) in the SQL Editor (adjust `user_id` if needed).
+   - Run migrations in order: [`20250324120000_initial.sql`](supabase/migrations/20250324120000_initial.sql), [`20250324200000_niche_home_services.sql`](supabase/migrations/20250324200000_niche_home_services.sql) (if applicable), [`20250328120000_leadrescue_product_upgrade.sql`](supabase/migrations/20250328120000_leadrescue_product_upgrade.sql), [`20250329140000_sms_thread_routing.sql`](supabase/migrations/20250329140000_sms_thread_routing.sql), [`20250329190000_user_subscriptions.sql`](supabase/migrations/20250329190000_user_subscriptions.sql), then [`20250330170000_tfv_opt_in_image_urls.sql`](supabase/migrations/20250330170000_tfv_opt_in_image_urls.sql) and [`20250330180000_tfv_last_polled_at.sql`](supabase/migrations/20250330180000_tfv_last_polled_at.sql). To grant yourself the $49/mo plan after migrating, run [`supabase/sql/grant_monthly_49_plan.sql`](supabase/sql/grant_monthly_49_plan.sql) in the SQL Editor (adjust `user_id` if needed).
    - Auth → URL configuration: add `NEXT_PUBLIC_APP_URL` and redirect `/auth/callback`.
 
 4. **Twilio (operator account)**
 
    - Use **your** Twilio account credentials in `.env.local`. The app **searches and purchases US toll-free** numbers for each business and sets webhooks automatically; customers do not enter SIDs or phone numbers in the UI.
+   - **Toll-free verification (TFV):** onboarding submits to Twilio’s Messaging toll-free verification API. Optional env vars are listed in [`.env.example`](.env.example) (`TWILIO_CUSTOMER_PROFILE_SID`, `TWILIO_TFV_OPT_IN_IMAGE_URLS`, use-case categories, message volume, opt-in type, registration authority). Dashboard loads sync TFV status from Twilio when a submission id exists, but **polling is throttled** (no call if status is already `approved` or `rejected`, otherwise at most once per `TWILIO_TFV_SYNC_MIN_INTERVAL_SEC`, default 120s) so navigation does not hammer Twilio or slow every page. **Outbound SMS on toll-free lines is suppressed until** `line_verification_status` is `approved` (inbound is still accepted and stored when a conversation exists).
    - For local webhook testing, use a tunnel (e.g. ngrok) and set `NEXT_PUBLIC_APP_URL` to the tunnel origin, or temporarily use `TWILIO_SKIP_SIGNATURE_VERIFY=true` (never in production).
 
 5. **Resend**
@@ -60,7 +61,7 @@ Protected by header `x-internal-secret: <INTERNAL_API_SECRET>`:
 
 ## Compliance note
 
-SMS (including toll-free verification) and telecom rules are the **operator’s** responsibility. LeadRescue includes an in-app **texting line verification** flow and stores registration details; wire the Twilio Trust Hub adapter when you are ready for API-based submission. Follow-up SMS is sent in the context of an inbound call forwarded to the app.
+SMS (including toll-free verification) and telecom rules are the **operator’s** responsibility. LeadRescue includes an in-app **texting line verification** flow, persists registration details and opt-in proof URLs, submits to Twilio’s toll-free verification API, and mirrors review status back from Twilio on dashboard load. Follow-up SMS is sent in the context of an inbound call forwarded to the app, and toll-free AI replies are gated until Twilio approval.
 
 ## Scripts
 

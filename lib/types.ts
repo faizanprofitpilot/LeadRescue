@@ -91,11 +91,15 @@ export type TollFreeVerificationRow = {
   sample_message_1: string | null;
   sample_message_2: string | null;
   consent_description: string | null;
+  /** HTTPS URLs of opt-in proof screenshots (Twilio TFV required). */
+  opt_in_image_urls: string[] | null;
   status: TollFreeVerificationStatus;
   provider_submission_id: string | null;
   provider_response_payload: Record<string, unknown> | null;
   submitted_at: string | null;
   reviewed_at: string | null;
+  /** Last successful Twilio TFV fetch (dashboard sync throttle). */
+  tfv_last_polled_at: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -284,8 +284,9 @@ export function OnboardingWizard({
           >
             <p className="font-medium">Texting line verification is in progress</p>
             <p className="mt-1 text-amber-900/90 leading-relaxed dark:text-amber-100/85">
-              Texting approval usually takes a few business days. You can keep going with the steps
-              below, or open{" "}
+              Texting approval usually takes a few business days. The status shown here refreshes
+              automatically every few minutes when you load the dashboard (for example when you open
+              Setup again). You can keep going with the steps below, or open{" "}
               <button
                 type="button"
                 className="font-semibold underline-offset-2 hover:underline"
@@ -293,7 +294,7 @@ export function OnboardingWizard({
               >
                 Verify texting line
               </button>{" "}
-              anytime to review your details and status.
+              anytime to review your details.
             </p>
           </div>
         )}
@@ -408,7 +409,7 @@ export function OnboardingWizard({
             ) : (
               <>
                 <p className="text-emerald-800 text-sm font-medium dark:text-emerald-200/95">
-                  You&apos;re almost live
+                  You&apos;re almost set
                 </p>
                 <h2 className="font-heading mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
                   Your LeadRescue number is ready
@@ -489,7 +490,8 @@ export function OnboardingWizard({
             <h2 className="font-heading text-xl font-semibold">Verify your texting line</h2>
             <p className="mt-1 text-muted-foreground text-sm leading-relaxed">
               U.S. carriers require a one-time registration with your business details. Submit
-              accurate information—you can follow status on this page anytime.
+              accurate information, then check back here for status—it updates automatically every few
+              minutes when you use the dashboard, not the moment Twilio changes.
             </p>
             <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
               Texting approval usually takes a few business days.
@@ -611,12 +613,16 @@ export function OnboardingWizard({
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="registrationNumber">EIN / registration (optional)</Label>
+                  <Label htmlFor="registrationNumber">EIN / registration number</Label>
                   <Input
                     id="registrationNumber"
                     name="registrationNumber"
                     defaultValue={tf?.registration_number ?? ""}
                   />
+                  <p className="text-muted-foreground text-xs">
+                    Required for registered business types (not sole proprietor). Sole proprietors may
+                    leave blank.
+                  </p>
                 </div>
                 <div className="sm:col-span-2">
                   <p className="text-muted-foreground text-sm leading-relaxed">
@@ -680,6 +686,25 @@ export function OnboardingWizard({
                     }
                   />
                 </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="optInImageUrls">Opt-in proof image URLs</Label>
+                  <Textarea
+                    id="optInImageUrls"
+                    name="optInImageUrls"
+                    rows={3}
+                    placeholder="https://example.com/opt-in-screenshot.png"
+                    defaultValue={
+                      tf?.opt_in_image_urls?.length
+                        ? tf.opt_in_image_urls.join("\n")
+                        : ""
+                    }
+                  />
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    Twilio needs at least one public HTTPS URL per line (screenshots of your opt-in
+                    flow). Your deploy can also set TWILIO_TFV_OPT_IN_IMAGE_URLS (comma-separated HTTPS
+                    URLs) if you prefer not to paste them here.
+                  </p>
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-3 pt-2">
@@ -713,7 +738,9 @@ export function OnboardingWizard({
                       const r = await submitVerificationForReview(new FormData(el));
                       setVerifyFlash(
                         r.ok
-                          ? { ok: "Submitted. We'll show updates here as they come in." }
+                          ? {
+                              ok: "Submitted. Status will refresh automatically every few minutes when you use the dashboard.",
+                            }
                           : { error: r.error ?? "Could not submit." },
                       );
                       if (r.ok) router.refresh();
