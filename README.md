@@ -26,7 +26,7 @@ AI-powered **missed-call recovery** for **home service** businesses (HVAC, plumb
 3. **Supabase**
 
    - Create a project.
-   - Run migrations in order: [`20250324120000_initial.sql`](supabase/migrations/20250324120000_initial.sql), [`20250324200000_niche_home_services.sql`](supabase/migrations/20250324200000_niche_home_services.sql) (if applicable), [`20250328120000_leadrescue_product_upgrade.sql`](supabase/migrations/20250328120000_leadrescue_product_upgrade.sql), then [`20250329140000_sms_thread_routing.sql`](supabase/migrations/20250329140000_sms_thread_routing.sql). The last migration adds deterministic SMS routing on `conversations` (`business_id`, `caller_phone_normalized`, `last_message_at`, stale/closed fields, partial unique index for one active thread per caller, and unique `messages.provider_message_sid` for webhook retries).
+   - Run migrations in order: [`20250324120000_initial.sql`](supabase/migrations/20250324120000_initial.sql), [`20250324200000_niche_home_services.sql`](supabase/migrations/20250324200000_niche_home_services.sql) (if applicable), [`20250328120000_leadrescue_product_upgrade.sql`](supabase/migrations/20250328120000_leadrescue_product_upgrade.sql), [`20250329140000_sms_thread_routing.sql`](supabase/migrations/20250329140000_sms_thread_routing.sql), then [`20250329190000_user_subscriptions.sql`](supabase/migrations/20250329190000_user_subscriptions.sql) (`user_subscriptions` for the dashboard paywall). To grant yourself the $49/mo plan after migrating, run [`supabase/sql/grant_monthly_49_plan.sql`](supabase/sql/grant_monthly_49_plan.sql) in the SQL Editor (adjust `user_id` if needed).
    - Auth → URL configuration: add `NEXT_PUBLIC_APP_URL` and redirect `/auth/callback`.
 
 4. **Twilio (operator account)**

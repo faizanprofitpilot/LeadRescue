@@ -21,8 +21,8 @@ export const metadata: Metadata = {
   description:
     "Missed calls are lost jobs. LeadRescue texts customers back instantly, captures job details, and delivers ready-to-call leads for HVAC, plumbing, electrical, and home service teams.",
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: "/favicon.png",
+    apple: "/favicon.png",
   },
 };
 

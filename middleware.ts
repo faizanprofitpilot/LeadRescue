@@ -50,6 +50,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  if (user && request.nextUrl.pathname.startsWith("/dashboard")) {
+    const subscribePath = "/dashboard/subscribe";
+    if (!request.nextUrl.pathname.startsWith(subscribePath)) {
+      const { data: sub, error: subError } = await supabase
+        .from("user_subscriptions")
+        .select("status, current_period_end")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const active =
+        !subError &&
+        sub?.status === "active" &&
+        (!sub.current_period_end ||
+          new Date(sub.current_period_end).getTime() > Date.now());
+
+      if (!active) {
+        return NextResponse.redirect(new URL(subscribePath, request.url));
+      }
+    }
+  }
+
   if (
     (request.nextUrl.pathname === "/login" ||
       request.nextUrl.pathname === "/signup") &&
