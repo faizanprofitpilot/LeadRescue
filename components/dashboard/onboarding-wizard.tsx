@@ -16,7 +16,9 @@ import {
   submitVerificationForReview,
   type StepFormState,
 } from "@/app/dashboard/onboarding/setup-actions";
+import { CopyPhoneNumberButton } from "@/components/dashboard/copy-phone-number-button";
 import { ForwardingInstructions } from "@/components/dashboard/forwarding-instructions";
+import { RegenerateNumberSubmit } from "@/components/dashboard/regenerate-number-submit";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,14 +57,35 @@ import type {
 
 const initialStepState: StepFormState = {};
 
-const LINE_STATUS_LABEL: Record<string, string> = {
-  not_started: "Not started",
-  draft: "Draft",
-  submitted: "Submitted",
-  needs_changes: "Needs changes",
+/** Phone line / carrier texting approval — customer-facing labels */
+const TEXTING_STATUS_CUSTOMER: Record<string, string> = {
+  not_started: "Not verified",
+  draft: "Not verified",
+  submitted: "In review",
+  needs_changes: "Needs updates",
   approved: "Approved",
-  rejected: "Rejected",
+  rejected: "Needs updates",
 };
+
+/** In-app registration form progress — customer-facing */
+const APPLICATION_STATUS_CUSTOMER: Record<string, string> = {
+  not_started: "Not started",
+  draft: "In progress",
+  submitted: "In review",
+  needs_changes: "Needs updates",
+  approved: "Approved",
+  rejected: "Needs updates",
+};
+
+function customerTextingStatus(lineStatus: string | null): string {
+  const key = lineStatus ?? "not_started";
+  return TEXTING_STATUS_CUSTOMER[key] ?? TEXTING_STATUS_CUSTOMER.not_started;
+}
+
+function customerApplicationStatus(tfStatus: string | null | undefined): string {
+  const key = tfStatus ?? "not_started";
+  return APPLICATION_STATUS_CUSTOMER[key] ?? APPLICATION_STATUS_CUSTOMER.not_started;
+}
 
 function firstIncompleteStep(c: SetupChecklist): number {
   if (!c.business_info) return 0;
@@ -82,10 +105,10 @@ function verificationStepBadge(
     return { label: "Open", variant: "secondary" };
   }
   const line = (lineStatus ?? "submitted") as LineVerificationStatus;
-  if (line === "approved") return { label: "Done", variant: "default" };
-  if (line === "rejected") return { label: "Action", variant: "destructive" };
-  if (line === "needs_changes") return { label: "Update", variant: "outline" };
-  return { label: "Pending", variant: "secondary" };
+  if (line === "approved") return { label: "Approved", variant: "default" };
+  if (line === "rejected") return { label: "Needs updates", variant: "destructive" };
+  if (line === "needs_changes") return { label: "Needs updates", variant: "outline" };
+  return { label: "In review", variant: "secondary" };
 }
 
 function verificationAwaitingApproval(
@@ -100,17 +123,25 @@ function verificationAwaitingApproval(
 
 const STEP_META = [
   { key: "business_info" as const, title: "Business basics", desc: "Name, contact, trade" },
-  { key: "number_generated" as const, title: "LeadRescue number", desc: "Toll-free line" },
-  { key: "verification_submitted" as const, title: "Verify texting line", desc: "Carrier compliance" },
+  { key: "number_generated" as const, title: "LeadRescue number", desc: "Your business line" },
+  { key: "verification_submitted" as const, title: "Verify texting line", desc: "One-time registration" },
   { key: "knowledge_base" as const, title: "Knowledge base", desc: "What the AI knows" },
   { key: "forwarding_acknowledged" as const, title: "Call forwarding", desc: "Missed-call flow" },
   { key: "test_completed" as const, title: "Test & finish", desc: "Confirm it works" },
 ];
 
-function Submit({ label, pendingLabel }: { label: string; pendingLabel: string }) {
+function Submit({
+  label,
+  pendingLabel,
+  disabled,
+}: {
+  label: string;
+  pendingLabel: string;
+  disabled?: boolean;
+}) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" disabled={pending || disabled}>
       {pending ? pendingLabel : label}
     </Button>
   );
@@ -173,8 +204,8 @@ export function OnboardingWizard({
   }, [tf?.business_type]);
 
   const displayNumber = provisionState.phoneNumber ?? leadRescueNumber;
-  const lineLabel =
-    LINE_STATUS_LABEL[lineVerificationStatus ?? "not_started"] ?? "Not started";
+  const textingStatusLabel = customerTextingStatus(lineVerificationStatus);
+  const textingApproved = lineVerificationStatus === "approved";
 
   function goContinue(fromStep: number) {
     setStep(fromStep + 1);
@@ -196,6 +227,7 @@ export function OnboardingWizard({
           {STEP_META.map((s, i) => {
             const done = checklist[s.key];
             const active = step === i;
+            const testLocked = s.key === "test_completed" && !textingApproved;
             const vBadge =
               s.key === "verification_submitted"
                 ? verificationStepBadge(checklist.verification_submitted, lineVerificationStatus)
@@ -204,11 +236,13 @@ export function OnboardingWizard({
               <li key={s.key}>
                 <button
                   type="button"
+                  disabled={testLocked}
                   onClick={() => setStep(i)}
                   className={cn(
                     "flex w-full flex-col rounded-lg border px-3 py-2 text-left text-sm transition-colors",
                     active && "border-primary bg-primary/5",
-                    !active && "hover:bg-muted/60",
+                    !active && !testLocked && "hover:bg-muted/60",
+                    testLocked && "cursor-not-allowed opacity-55",
                   )}
                 >
                   <span className="flex items-center justify-between gap-2">
@@ -223,7 +257,11 @@ export function OnboardingWizard({
                       </Badge>
                     )}
                   </span>
-                  <span className="text-muted-foreground text-xs">{s.desc}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {testLocked
+                      ? "Unlocks after texting is approved"
+                      : s.desc}
+                  </span>
                 </button>
               </li>
             );
@@ -246,7 +284,8 @@ export function OnboardingWizard({
           >
             <p className="font-medium">Texting line verification is in progress</p>
             <p className="mt-1 text-amber-900/90 leading-relaxed dark:text-amber-100/85">
-              Carriers often take a few days. You can keep going with the steps below, then open{" "}
+              Texting approval usually takes a few business days. You can keep going with the steps
+              below, or open{" "}
               <button
                 type="button"
                 className="font-semibold underline-offset-2 hover:underline"
@@ -254,7 +293,7 @@ export function OnboardingWizard({
               >
                 Verify texting line
               </button>{" "}
-              anytime to see your submitted details and status.
+              anytime to review your details and status.
             </p>
           </div>
         )}
@@ -342,57 +381,124 @@ export function OnboardingWizard({
         )}
 
         {step === 1 && (
-          <section className="rounded-xl border bg-card p-6 shadow-sm">
-            <h2 className="font-heading text-xl font-semibold">Generate your LeadRescue number</h2>
-            <p className="mt-1 text-muted-foreground text-sm">
-              We provision a toll-free line on our side and attach voice + SMS automatically. You
-              only copy the number into your carrier&apos;s missed-call forwarding.
-            </p>
-            {displayNumber && (
-              <div className="mt-4 rounded-lg bg-muted/80 px-4 py-3">
-                <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-                  Your number
-                </p>
-                <p className="font-mono text-lg font-semibold">{displayNumber}</p>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Line status: {lineLabel}
-                </p>
-              </div>
+          <section
+            className={cn(
+              "rounded-xl border bg-card p-6 shadow-sm sm:p-8",
+              displayNumber &&
+                "border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.07] to-card dark:from-emerald-500/[0.09]",
             )}
-            <form action={provisionAction} className="mt-6 space-y-4">
-              {provisionState.error && (
-                <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive text-sm">
-                  {provisionState.error}
+          >
+            {!displayNumber ? (
+              <>
+                <h2 className="font-heading text-xl font-semibold">Get your LeadRescue number</h2>
+                <p className="mt-1 text-muted-foreground text-sm leading-relaxed">
+                  We&apos;ll assign a dedicated number for your account. You&apos;ll forward missed
+                  calls from your current business line to it so we can text customers back right
+                  away.
                 </p>
-              )}
-              {provisionState.ok && !provisionState.error && (
-                <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-emerald-800 text-sm dark:text-emerald-200">
-                  Number ready. Continue to verify your texting line.
+                <form action={provisionAction} className="mt-8 space-y-4">
+                  {provisionState.error && (
+                    <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive text-sm">
+                      {provisionState.error}
+                    </p>
+                  )}
+                  <Submit label="Generate my LeadRescue number" pendingLabel="Getting your number…" />
+                </form>
+              </>
+            ) : (
+              <>
+                <p className="text-emerald-800 text-sm font-medium dark:text-emerald-200/95">
+                  You&apos;re almost live
                 </p>
-              )}
-              <Submit
-                label={displayNumber ? "Refresh number (already assigned)" : "Generate my LeadRescue number"}
-                pendingLabel="Provisioning…"
-              />
-              {provisionState.ok && (
-                <Button type="button" variant="secondary" onClick={() => goContinue(1)}>
-                  Next step
-                </Button>
-              )}
-            </form>
+                <h2 className="font-heading mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+                  Your LeadRescue number is ready
+                </h2>
+
+                {provisionState.error && (
+                  <p className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive text-sm">
+                    {provisionState.error}
+                  </p>
+                )}
+
+                <div className="mt-6 rounded-2xl border-2 border-emerald-500/25 bg-background/80 px-5 py-6 shadow-sm sm:px-8 sm:py-8">
+                  <p className="text-muted-foreground text-xs font-medium tracking-wide">
+                    Call forwarding destination
+                  </p>
+                  <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                    <p className="font-mono text-3xl font-bold tracking-tight sm:text-4xl">
+                      {displayNumber}
+                    </p>
+                    <CopyPhoneNumberButton value={displayNumber} />
+                  </div>
+                  <p className="text-muted-foreground mt-4 text-sm leading-relaxed">
+                    Forward missed calls here from your current business number.
+                  </p>
+                  <div className="text-muted-foreground mt-5 space-y-1 border-t border-border/80 pt-5 text-sm">
+                    <p>
+                      <span className="font-medium text-foreground">Number</span>
+                      <span className="mx-1.5">·</span>
+                      Ready
+                    </p>
+                    <p>
+                      <span className="font-medium text-foreground">Texting status</span>
+                      <span className="mx-1.5">·</span>
+                      {textingStatusLabel}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 rounded-lg border border-dashed bg-muted/25 px-4 py-3">
+                  <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">
+                    What happens next
+                  </p>
+                  <ol className="mt-2 flex list-none flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-1">
+                    <li>
+                      <span className="font-medium text-foreground">1.</span> Verify texting
+                    </li>
+                    <li>
+                      <span className="font-medium text-foreground">2.</span> Forward missed calls
+                    </li>
+                    <li>
+                      <span className="font-medium text-foreground">3.</span> Test your setup
+                    </li>
+                  </ol>
+                </div>
+
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                  <Button type="button" size="lg" className="w-full sm:w-auto" onClick={() => goContinue(1)}>
+                    Verify texting line
+                  </Button>
+                </div>
+
+                <p className="text-muted-foreground mt-4 text-sm leading-relaxed">
+                  Texting approval usually takes a few business days.
+                </p>
+
+                <form action={provisionAction} className="mt-8 border-t pt-5">
+                  <p className="text-muted-foreground text-center text-sm sm:text-left">
+                    Need a different number? <RegenerateNumberSubmit />
+                  </p>
+                </form>
+              </>
+            )}
           </section>
         )}
 
         {step === 2 && (
           <section className="rounded-xl border bg-card p-6 shadow-sm">
             <h2 className="font-heading text-xl font-semibold">Verify your texting line</h2>
-            <p className="mt-1 text-muted-foreground text-sm">
-              Messaging carriers require a one-time registration with your business details. Submit
-              accurate information. We show status here so you can follow progress anytime.
+            <p className="mt-1 text-muted-foreground text-sm leading-relaxed">
+              U.S. carriers require a one-time registration with your business details. Submit
+              accurate information—you can follow status on this page anytime.
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge variant="outline">Form: {LINE_STATUS_LABEL[tf?.status ?? "not_started"]}</Badge>
-              <Badge variant="outline">Line: {lineLabel}</Badge>
+            <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+              Texting approval usually takes a few business days.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge variant="outline">
+                Application: {customerApplicationStatus(tf?.status)}
+              </Badge>
+              <Badge variant="outline">Texting status: {textingStatusLabel}</Badge>
             </div>
 
             <form ref={verifyFormRef} className="mt-6 space-y-4">
@@ -607,7 +713,7 @@ export function OnboardingWizard({
                       const r = await submitVerificationForReview(new FormData(el));
                       setVerifyFlash(
                         r.ok
-                          ? { ok: "Submitted for review. We will update status here." }
+                          ? { ok: "Submitted. We'll show updates here as they come in." }
                           : { error: r.error ?? "Could not submit." },
                       );
                       if (r.ok) router.refresh();
@@ -616,9 +722,9 @@ export function OnboardingWizard({
                 >
                   {submitPending ? "Submitting…" : "Submit for review"}
                 </Button>
-                {verifyFlash.ok?.includes("Submitted") && (
+                {verifyFlash.ok?.includes("Submitted.") && (
                   <Button type="button" variant="secondary" onClick={() => goContinue(2)}>
-                    Next step
+                    Continue to knowledge base
                   </Button>
                 )}
               </div>
@@ -786,13 +892,22 @@ export function OnboardingWizard({
         )}
 
         {step === 5 && (
-          <section className="rounded-xl border bg-card p-6 shadow-sm">
+          <section
+            className={cn(
+              "rounded-xl border bg-card p-6 shadow-sm",
+              !textingApproved && "opacity-90",
+            )}
+          >
             <h2 className="font-heading text-xl font-semibold">Test your setup</h2>
-            <p className="mt-1 text-muted-foreground text-sm leading-relaxed">
-              Call your main business number from your cell phone and let it ring through to
-              voicemail or hang up after the forward kicks in. LeadRescue should send the test
-              caller an SMS. When you see a lead appear in the dashboard, this step completes
-              automatically, or mark it done once you&apos;ve tried.
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              Testing works best after your texting line is approved and missed-call forwarding is
+              set up.
+            </p>
+            <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+              Call your main business number from your phone and let it ring through to voicemail or
+              hang up after forwarding picks up. LeadRescue should text the caller back. When you
+              see a lead in the dashboard, this step completes automatically—or mark it done once
+              you&apos;ve tried.
             </p>
             <form action={testAction} className="mt-6 space-y-4">
               {testState.error && (
@@ -805,7 +920,11 @@ export function OnboardingWizard({
                   Marked complete.
                 </p>
               )}
-              <Submit label="Mark test completed" pendingLabel="Saving…" />
+              <Submit
+                label="Mark test completed"
+                pendingLabel="Saving…"
+                disabled={!textingApproved}
+              />
             </form>
             <form action={finishOnboardingAndGoToDashboard} className="mt-8 border-t pt-6">
               <p className="text-muted-foreground mb-4 text-sm">
