@@ -502,6 +502,10 @@ export function OnboardingWizard({
               </Badge>
               <Badge variant="outline">Texting status: {textingStatusLabel}</Badge>
             </div>
+            <p className="mt-3 text-muted-foreground text-xs leading-relaxed">
+              Fields marked <span className="font-medium text-destructive">*</span> are needed to
+              submit. Fields marked <span className="font-medium">Optional</span> can be left blank.
+            </p>
 
             <form ref={verifyFormRef} className="mt-6 space-y-4">
               {verifyFlash.error && (
@@ -517,15 +521,20 @@ export function OnboardingWizard({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="legalBusinessName">Legal business name</Label>
+                  <Label htmlFor="legalBusinessName">
+                    Legal business name <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="legalBusinessName"
                     name="legalBusinessName"
+                    required
                     defaultValue={tf?.legal_business_name ?? ""}
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="publicBusinessName">Public / DBA name</Label>
+                  <Label htmlFor="publicBusinessName">
+                    Public / DBA name <span className="text-muted-foreground text-xs">(Optional)</span>
+                  </Label>
                   <Input
                     id="publicBusinessName"
                     name="publicBusinessName"
@@ -533,7 +542,9 @@ export function OnboardingWizard({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="businessType">Business type</Label>
+                  <Label htmlFor="businessType">
+                    Business type <span className="text-destructive">*</span>
+                  </Label>
                   <input type="hidden" name="businessType" value={verificationBusinessType} />
                   <Select
                     value={verificationBusinessType === "" ? undefined : verificationBusinessType}
@@ -552,31 +563,42 @@ export function OnboardingWizard({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="website">Website</Label>
+                  <Label htmlFor="website">
+                    Website <span className="text-muted-foreground text-xs">(Optional)</span>
+                  </Label>
                   <Input id="website" name="website" defaultValue={tf?.website ?? ""} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="businessEmail">Business email</Label>
+                  <Label htmlFor="businessEmail">
+                    Business email <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="businessEmail"
                     name="businessEmail"
                     type="email"
+                    required
                     defaultValue={tf?.business_email ?? ""}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="businessPhone">Business phone</Label>
+                  <Label htmlFor="businessPhone">
+                    Business phone <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="businessPhone"
                     name="businessPhone"
+                    required
                     defaultValue={tf?.business_phone ?? ""}
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="addressLine1">Street address</Label>
+                  <Label htmlFor="addressLine1">
+                    Street address <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="addressLine1"
                     name="addressLine1"
+                    required
                     defaultValue={tf?.business_address_line_1 ?? ""}
                   />
                 </div>
@@ -589,23 +611,32 @@ export function OnboardingWizard({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input id="city" name="city" defaultValue={tf?.business_city ?? ""} />
+                  <Label htmlFor="city">
+                    City <span className="text-destructive">*</span>
+                  </Label>
+                  <Input id="city" name="city" required defaultValue={tf?.business_city ?? ""} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="state">State / province</Label>
-                  <Input id="state" name="state" defaultValue={tf?.business_state ?? ""} />
+                  <Label htmlFor="state">
+                    State / province <span className="text-destructive">*</span>
+                  </Label>
+                  <Input id="state" name="state" required defaultValue={tf?.business_state ?? ""} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="postalCode">Postal code</Label>
+                  <Label htmlFor="postalCode">
+                    Postal code <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="postalCode"
                     name="postalCode"
+                    required
                     defaultValue={tf?.business_postal_code ?? ""}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="country">Country</Label>
+                  <Label htmlFor="country">
+                    Country <span className="text-muted-foreground text-xs">(Optional, defaults to US)</span>
+                  </Label>
                   <Input
                     id="country"
                     name="country"
@@ -613,7 +644,12 @@ export function OnboardingWizard({
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="registrationNumber">EIN / registration number</Label>
+                  <Label htmlFor="registrationNumber">
+                    EIN / registration number{" "}
+                    <span className="text-muted-foreground text-xs">
+                      (Optional for sole proprietors)
+                    </span>
+                  </Label>
                   <Input
                     id="registrationNumber"
                     name="registrationNumber"
@@ -631,7 +667,9 @@ export function OnboardingWizard({
                   </p>
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="useCaseDescription">How you use this number</Label>
+                  <Label htmlFor="useCaseDescription">
+                    How you use this number <span className="text-destructive">*</span>
+                  </Label>
                   <Textarea
                     id="useCaseDescription"
                     name="useCaseDescription"
@@ -645,7 +683,9 @@ export function OnboardingWizard({
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="sampleMessage1">Sample message 1</Label>
+                  <Label htmlFor="sampleMessage1">
+                    Sample message 1 <span className="text-destructive">*</span>
+                  </Label>
                   <Textarea
                     id="sampleMessage1"
                     name="sampleMessage1"
@@ -659,7 +699,9 @@ export function OnboardingWizard({
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="sampleMessage2">Sample message 2</Label>
+                  <Label htmlFor="sampleMessage2">
+                    Sample message 2 <span className="text-destructive">*</span>
+                  </Label>
                   <Textarea
                     id="sampleMessage2"
                     name="sampleMessage2"
@@ -673,7 +715,9 @@ export function OnboardingWizard({
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="consentDescription">Text message consent wording</Label>
+                  <Label htmlFor="consentDescription">
+                    Text message consent wording <span className="text-destructive">*</span>
+                  </Label>
                   <Textarea
                     id="consentDescription"
                     name="consentDescription"
