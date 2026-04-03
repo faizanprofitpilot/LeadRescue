@@ -47,6 +47,7 @@ import {
   VERIFICATION_DEFAULT_SAMPLE_2,
   VERIFICATION_DEFAULT_USE_CASE,
 } from "@/lib/dashboard/verification-compliance-defaults";
+import { US_STATE_OPTIONS } from "@/lib/dashboard/us-states";
 import type {
   Business,
   BusinessKnowledgeBaseRow,
@@ -620,7 +621,26 @@ export function OnboardingWizard({
                   <Label htmlFor="state">
                     State / province <span className="text-destructive">*</span>
                   </Label>
-                  <Input id="state" name="state" required defaultValue={tf?.business_state ?? ""} />
+                  <Input
+                    id="state"
+                    name="state"
+                    list="us-state-codes"
+                    required
+                    maxLength={2}
+                    autoCapitalize="characters"
+                    autoComplete="address-level1"
+                    placeholder="NJ"
+                    className="uppercase"
+                    defaultValue={tf?.business_state ?? ""}
+                  />
+                  <datalist id="us-state-codes">
+                    {US_STATE_OPTIONS.map((state) => (
+                      <option key={state.code} value={state.code}>
+                        {state.name}
+                      </option>
+                    ))}
+                  </datalist>
+                  <p className="text-muted-foreground text-xs">Use the 2-letter code, like NJ.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="postalCode">

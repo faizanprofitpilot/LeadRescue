@@ -24,6 +24,10 @@ const twilioBusinessTypeSubmit = z
     { message: "Select a business type." },
   );
 
+function normalizeStateCode(value: string): string {
+  return value.trim().toUpperCase();
+}
+
 export async function saveBusinessBasics(formData: FormData): Promise<{
   error?: string;
   ok?: boolean;
@@ -223,7 +227,13 @@ const verificationDraftSchema = z.object({
 const verificationSubmitSchema = z
   .object({
   legalBusinessName: z.string().min(2).max(300),
-  publicBusinessName: z.string().min(2).max(300),
+  /** Optional in UI; empty means “same as legal name” for carrier submission. */
+  publicBusinessName: z
+    .string()
+    .max(300)
+    .refine((s) => s.trim() === "" || s.trim().length >= 2, {
+      message: "If you enter a public / DBA name, use at least 2 characters.",
+    }),
   businessType: twilioBusinessTypeSubmit,
   website: z.string().max(500).optional().or(z.literal("")),
   businessEmail: z.string().email(),
@@ -231,7 +241,10 @@ const verificationSubmitSchema = z
   addressLine1: z.string().min(2).max(200),
   addressLine2: z.string().max(200).optional().or(z.literal("")),
   city: z.string().min(2).max(120),
-  state: z.string().min(2).max(80),
+  state: z
+    .string()
+    .transform(normalizeStateCode)
+    .pipe(z.string().length(2, "Use the 2-letter state code, for example NJ.")),
   postalCode: z.string().min(3).max(20),
   country: z.string().max(80).optional().or(z.literal("")),
   registrationNumber: z.string().max(120).optional().or(z.literal("")),
@@ -284,7 +297,7 @@ function formToVerificationRaw(formData: FormData) {
     addressLine1: trimVerificationField(raw.addressLine1),
     addressLine2: trimVerificationField(raw.addressLine2),
     city: trimVerificationField(raw.city),
-    state: trimVerificationField(raw.state),
+    state: normalizeStateCode(trimVerificationField(raw.state)),
     postalCode: trimVerificationField(raw.postalCode),
     country: trimVerificationField(raw.country) || "US",
     registrationNumber: trimVerificationField(raw.registrationNumber),
@@ -376,14 +389,37 @@ export async function saveVerificationDraft(
   return { ok: true };
 }
 
+const verificationFieldLabels: Record<string, string> = {
+  legalBusinessName: "Legal business name",
+  publicBusinessName: "Public / DBA name",
+  businessType: "Business type",
+  website: "Website",
+  businessEmail: "Business email",
+  businessPhone: "Business phone",
+  addressLine1: "Street address",
+  addressLine2: "Suite / unit",
+  city: "City",
+  state: "State / province",
+  postalCode: "Postal code",
+  country: "Country",
+  registrationNumber: "EIN / registration number",
+  useCaseDescription: "How you use this number",
+  sampleMessage1: "Sample message 1",
+  sampleMessage2: "Sample message 2",
+  consentDescription: "Text message consent wording",
+};
+
 export async function submitVerificationForReview(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean }> {
   const parsed = verificationSubmitSchema.safeParse(formToVerificationRaw(formData));
   if (!parsed.success) {
     const first = parsed.error.issues[0];
+    const key = String(first.path[0] ?? "");
+    const label = verificationFieldLabels[key];
+    const msg = first?.message ?? "Please complete all required fields before submitting.";
     return {
-      error: first?.message ?? "Please complete all required fields before submitting.",
+      error: label ? `${label}: ${msg}` : msg,
     };
   }
 
@@ -417,10 +453,12 @@ export async function submitVerificationForReview(
 
   const statusKeep = (existingTfv?.status ?? "not_started") as TollFreeVerificationStatus;
 
+  const publicName = v.publicBusinessName.trim() || v.legalBusinessName.trim();
+
   const row = {
     business_id: business.id,
     legal_business_name: v.legalBusinessName.trim(),
-    public_business_name: v.publicBusinessName.trim(),
+    public_business_name: publicName,
     business_type: v.businessType,
     website: v.website?.trim() || null,
     business_email: v.businessEmail.trim(),
