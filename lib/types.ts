@@ -100,6 +100,10 @@ export type TollFreeVerificationRow = {
   reviewed_at: string | null;
   /** Last successful Twilio TFV fetch (dashboard sync throttle). */
   tfv_last_polled_at: string | null;
+  /** Last status value we emailed to the owner. */
+  status_email_last_sent_status: string | null;
+  /** Timestamp of last status email to the owner. */
+  status_email_sent_at: string | null;
   created_at: string;
   updated_at: string;
 };

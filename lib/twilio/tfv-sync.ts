@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getTwilioClient } from "@/lib/twilio/client";
+import { sendTextingVerificationStatusEmail } from "@/lib/email/send-texting-verification-status";
+import type { Business, TollFreeVerificationStatus } from "@/lib/types";
 import {
   lineVerificationStatusFromTwilio,
   tollFreeVerificationStatusFromTwilio,
@@ -24,15 +26,36 @@ function shouldSkipPoll(lastPolledAt: string | null | undefined, minMs: number):
  * No-ops when there is no HH… submission id. Skips Twilio when status is terminal
  * (approved / rejected) or when polled recently (see TWILIO_TFV_SYNC_MIN_INTERVAL_SEC).
  */
+function isMissingColumnError(err: { message?: string } | null): boolean {
+  const m = err?.message ?? "";
+  return m.includes("schema cache") || m.includes("Could not find");
+}
+
 export async function syncTollFreeVerificationFromTwilio(
   supabase: SupabaseClient,
   businessId: string,
 ): Promise<void> {
-  const { data: tfv } = await supabase
+  let tfvLastPolledKey = true;
+  let res = await supabase
     .from("toll_free_verifications")
-    .select("id, provider_submission_id, status, tfv_last_polled_at")
+    .select(
+      "id, provider_submission_id, status, tfv_last_polled_at, status_email_last_sent_status",
+    )
     .eq("business_id", businessId)
     .maybeSingle();
+
+  if (res.error && isMissingColumnError(res.error) && res.error.message?.includes("tfv_last_polled_at")) {
+    tfvLastPolledKey = false;
+    res = await supabase
+      .from("toll_free_verifications")
+      .select("id, provider_submission_id, status")
+      .eq("business_id", businessId)
+      .maybeSingle();
+  } else if (res.error) {
+    return;
+  }
+
+  const tfv = res.data;
 
   if (!tfv?.id) return;
   const sid = tfv.provider_submission_id?.trim();
@@ -44,7 +67,10 @@ export async function syncTollFreeVerificationFromTwilio(
   }
 
   const minMs = tfvSyncMinIntervalMs();
-  if (shouldSkipPoll(tfv.tfv_last_polled_at as string | null | undefined, minMs)) {
+  const lastPolled = tfvLastPolledKey
+    ? (tfv as { tfv_last_polled_at?: string | null }).tfv_last_polled_at
+    : undefined;
+  if (shouldSkipPoll(lastPolled, minMs)) {
     return;
   }
 
@@ -70,13 +96,42 @@ export async function syncTollFreeVerificationFromTwilio(
   const tfvPatch: Record<string, unknown> = {
     status: tfvStatus,
     provider_response_payload: payload,
-    tfv_last_polled_at: now,
   };
+  if (tfvLastPolledKey) {
+    tfvPatch.tfv_last_polled_at = now;
+  }
   if (lineStatus === "approved" || lineStatus === "rejected" || lineStatus === "needs_changes") {
     tfvPatch.reviewed_at = now;
   }
 
   await supabase.from("toll_free_verifications").update(tfvPatch).eq("id", tfv.id);
+
+  const terminal = tfvStatus === "approved" || tfvStatus === "needs_changes" || tfvStatus === "rejected";
+  const lastEmailed = (tfv as { status_email_last_sent_status?: string | null })
+    .status_email_last_sent_status;
+  const shouldEmail = terminal && lastEmailed !== tfvStatus;
+  if (shouldEmail) {
+    const { data: biz } = await supabase
+      .from("businesses")
+      .select("*")
+      .eq("id", businessId)
+      .single();
+    if (biz) {
+      const sent = await sendTextingVerificationStatusEmail({
+        business: biz as unknown as Business,
+        status: tfvStatus as TollFreeVerificationStatus,
+      });
+      if (!sent.error) {
+        await supabase
+          .from("toll_free_verifications")
+          .update({
+            status_email_last_sent_status: tfvStatus,
+            status_email_sent_at: now,
+          })
+          .eq("id", tfv.id);
+      }
+    }
+  }
 
   const { data: phone } = await supabase
     .from("phone_numbers")

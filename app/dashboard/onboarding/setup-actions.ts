@@ -358,7 +358,6 @@ export async function saveVerificationDraft(
     sample_message_1: trim(v.sampleMessage1),
     sample_message_2: trim(v.sampleMessage2),
     consent_description: trim(v.consentDescription),
-    opt_in_image_urls: [] as string[],
     status: "draft" as const,
   };
 
@@ -474,7 +473,6 @@ export async function submitVerificationForReview(
     sample_message_1: v.sampleMessage1.trim(),
     sample_message_2: v.sampleMessage2.trim(),
     consent_description: v.consentDescription.trim(),
-    opt_in_image_urls: [] as string[],
     phone_number_id: phone?.id ?? existingTfv?.phone_number_id ?? null,
     status: statusKeep,
   };
