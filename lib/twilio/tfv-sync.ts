@@ -58,8 +58,49 @@ export async function syncTollFreeVerificationFromTwilio(
   const tfv = res.data;
 
   if (!tfv?.id) return;
-  const sid = tfv.provider_submission_id?.trim();
-  if (!sid || !sid.startsWith("HH")) return;
+
+  // Primary path: we have the Twilio TFV SID (HH…).
+  let sid = tfv.provider_submission_id?.trim() ?? "";
+
+  // Fallback path: verification may have been submitted/approved in the Twilio Console,
+  // so we don't have HH… stored yet. In that case, look up the latest TFV record by the
+  // active toll-free phone number SID (PN…).
+  if (!sid.startsWith("HH")) {
+    const { data: phone } = await supabase
+      .from("phone_numbers")
+      .select("id, twilio_sid")
+      .eq("business_id", businessId)
+      .eq("provisioning_status", "active")
+      .maybeSingle();
+
+    const pnSid = (phone as { twilio_sid?: string | null } | null)?.twilio_sid ?? null;
+    if (pnSid?.startsWith("PN")) {
+      try {
+        const client = getTwilioClient();
+        const list = await client.messaging.v1.tollfreeVerifications.list({
+          tollfreePhoneNumberSid: pnSid,
+          limit: 20,
+        });
+        const latest = [...list].sort((a, b) => {
+          const ta = a.dateCreated ? new Date(a.dateCreated).getTime() : 0;
+          const tb = b.dateCreated ? new Date(b.dateCreated).getTime() : 0;
+          return tb - ta;
+        })[0];
+        if (latest?.sid?.startsWith("HH")) {
+          sid = latest.sid;
+          // Persist the discovered submission id so future syncs are cheap.
+          await supabase
+            .from("toll_free_verifications")
+            .update({ provider_submission_id: sid })
+            .eq("id", tfv.id);
+        }
+      } catch {
+        // ignore, keep existing behavior
+      }
+    }
+  }
+
+  if (!sid.startsWith("HH")) return;
 
   const status = tfv.status as string | undefined;
   if (status === "approved" || status === "rejected") {
