@@ -152,6 +152,8 @@ export async function POST(request: NextRequest) {
     .eq("business_id", businessId)
     .eq("caller_phone_normalized", customerE164)
     .eq("ai_state", "active")
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   const activeConv = activeRow as Conversation | null;

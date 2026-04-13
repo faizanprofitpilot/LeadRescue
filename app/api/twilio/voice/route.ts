@@ -9,6 +9,8 @@ import { markTestCompletedIfFirstLead } from "@/lib/dashboard/auto-checklist";
 const FIRST_SMS =
   "Hey, sorry we missed your call. What home service can we help you with today?";
 
+const FIRST_SMS_DEDUPE_WINDOW_MS = 2 * 60 * 1000;
+
 function twimlHangup(): Response {
   const vr = new twilio.twiml.VoiceResponse();
   vr.hangup();
@@ -52,11 +54,29 @@ export async function POST(request: NextRequest) {
 
   const { data: phoneRow } = await admin
     .from("phone_numbers")
-    .select("id, business_id, phone_number")
+    .select("id, business_id, phone_number, phone_type, line_verification_status")
     .eq("phone_number", to)
     .maybeSingle();
 
   if (!phoneRow) {
+    return twimlHangup();
+  }
+
+  // If Twilio retries the voice webhook (or there are multiple call legs),
+  // avoid sending the initial SMS twice within a short window.
+  const sinceIso = new Date(Date.now() - FIRST_SMS_DEDUPE_WINDOW_MS).toISOString();
+  const { data: recentFirstSms } = await admin
+    .from("messages")
+    .select("id, conversations!inner(business_id, caller_phone_normalized)")
+    .eq("direction", "outbound")
+    .eq("body", FIRST_SMS)
+    .eq("conversations.business_id", phoneRow.business_id)
+    .eq("conversations.caller_phone_normalized", from)
+    .gte("created_at", sinceIso)
+    .limit(1)
+    .maybeSingle();
+
+  if (recentFirstSms?.id) {
     return twimlHangup();
   }
 
@@ -102,6 +122,14 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (convError || !conversation) {
+    return twimlHangup();
+  }
+
+  const tollFreeOutboundBlocked =
+    phoneRow.phone_type === "toll_free" && phoneRow.line_verification_status !== "approved";
+
+  if (tollFreeOutboundBlocked) {
+    await markTestCompletedIfFirstLead(phoneRow.business_id);
     return twimlHangup();
   }
 
