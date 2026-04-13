@@ -15,7 +15,13 @@ export function lineVerificationStatusFromTwilio(
 
   // Twilio has historically used TWILIO_APPROVED / TWILIO_REJECTED, but we treat
   // common variants defensively so UI reflects the Console status.
-  if (s === "TWILIO_APPROVED" || s === "APPROVED" || s.includes("APPROVED") || s.includes("VERIFIED")) {
+  if (
+    s === "TWILIO_APPROVED" ||
+    s === "APPROVED" ||
+    s === "ACTIVE" ||
+    s.includes("APPROVED") ||
+    s.includes("VERIFIED")
+  ) {
     return "approved";
   }
   if (s === "TWILIO_REJECTED" || s === "REJECTED" || s.includes("REJECT")) {
