@@ -64,9 +64,21 @@ export async function deleteLead(leadId: string): Promise<{ ok?: boolean; error?
 
   if (!lead || lead.business_id !== business.id) return { error: "Not found" };
 
-  const { error } = await supabase.from("leads").delete().eq("id", leadId);
+  const { data: deleted, error } = await supabase
+    .from("leads")
+    .delete()
+    .eq("id", leadId)
+    .select("id");
+
   if (error) return { error: error.message };
+  if (!deleted?.length) {
+    return {
+      error:
+        "Could not delete this lead. If this keeps happening, confirm database migrations are applied (leads delete policy).",
+    };
+  }
 
   revalidatePath("/dashboard/leads");
+  revalidatePath(`/dashboard/leads/${leadId}`);
   return { ok: true };
 }
