@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { LeadStatusForm } from "@/components/dashboard/lead-status-form";
+import { DeleteLeadButton } from "@/components/dashboard/delete-lead-button";
 import type { Conversation, Lead, MessageRow } from "@/lib/types";
 
 export default async function LeadDetailPage({
@@ -70,7 +71,10 @@ export default async function LeadDetailPage({
           </h1>
           <p className="mt-1 font-mono text-muted-foreground text-sm">{lead.caller_phone}</p>
         </div>
-        <LeadStatusForm leadId={lead.id} current={lead.status} />
+        <div className="flex flex-col items-start gap-3 sm:items-end">
+          <LeadStatusForm leadId={lead.id} current={lead.status} />
+          <DeleteLeadButton leadId={lead.id} />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

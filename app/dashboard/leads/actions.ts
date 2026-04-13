@@ -39,3 +39,34 @@ export async function updateLeadStatus(leadId: string, status: LeadStatus) {
   revalidatePath("/dashboard/leads");
   revalidatePath(`/dashboard/leads/${leadId}`);
 }
+
+export async function deleteLead(leadId: string): Promise<{ ok?: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Unauthorized" };
+
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("id")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!business) return { error: "No business" };
+
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("id, business_id")
+    .eq("id", leadId)
+    .single();
+
+  if (!lead || lead.business_id !== business.id) return { error: "Not found" };
+
+  const { error } = await supabase.from("leads").delete().eq("id", leadId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/leads");
+  return { ok: true };
+}
