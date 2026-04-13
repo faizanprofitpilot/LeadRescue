@@ -11,17 +11,20 @@ export function lineVerificationStatusFromTwilio(
   twilioStatus: string | undefined,
   editAllowed?: boolean | null,
 ): LineVerificationStatus {
-  switch (twilioStatus) {
-    case "TWILIO_APPROVED":
-      return "approved";
-    case "TWILIO_REJECTED":
-      return editAllowed ? "needs_changes" : "rejected";
-    case "PENDING_REVIEW":
-    case "IN_REVIEW":
-      return "submitted";
-    default:
-      return "submitted";
+  const s = (twilioStatus ?? "").trim().toUpperCase();
+
+  // Twilio has historically used TWILIO_APPROVED / TWILIO_REJECTED, but we treat
+  // common variants defensively so UI reflects the Console status.
+  if (s === "TWILIO_APPROVED" || s === "APPROVED" || s.includes("APPROVED") || s.includes("VERIFIED")) {
+    return "approved";
   }
+  if (s === "TWILIO_REJECTED" || s === "REJECTED" || s.includes("REJECT")) {
+    return editAllowed ? "needs_changes" : "rejected";
+  }
+  if (s === "PENDING_REVIEW" || s === "IN_REVIEW" || s.includes("REVIEW") || s.includes("PENDING")) {
+    return "submitted";
+  }
+  return "submitted";
 }
 
 export function tollFreeVerificationStatusFromTwilio(
