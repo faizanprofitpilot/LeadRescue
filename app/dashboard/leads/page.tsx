@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireBusiness } from "@/lib/dashboard/guards";
 import { createClient } from "@/lib/supabase/server";
 import { SetupChecklistBanner } from "@/components/dashboard/setup-checklist-banner";
+import { DeleteLeadButton } from "@/components/dashboard/delete-lead-button";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -124,6 +125,9 @@ export default async function LeadsPage({
                 <TableHead>Issue</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Created</TableHead>
+                <TableHead className="w-12 text-right">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -146,6 +150,13 @@ export default async function LeadsPage({
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground text-sm">
                     {formatWhen(lead.created_at)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DeleteLeadButton
+                      leadId={lead.id}
+                      appearance="icon"
+                      navigateToListAfterDelete={false}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
